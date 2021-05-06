@@ -6,6 +6,8 @@ _(feel free to ask questions if you struggle anything trying this)_
 
 Typically you want to send your PRs against `master` branch. Other branches such `v3`, `v4`, etc. are used for tracking previous major versions of `offline-plugin` and typically shouldn't be touched.
 
+`v5` is used to store the original major version 5.0.x from [NekR offline-plugin](https://github.com/NekR/offline-plugin)
+
 ## Installation / prepare
 
 * `npm install`
