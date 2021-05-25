@@ -258,10 +258,35 @@ export default class OfflinePlugin {
       });
     };
 
-    const emitFn = (compilation, callback) => {
+    const checkRuntimeFn = (compilation, callback) => {
       const runtimeTemplatePath = path.resolve(__dirname, '../tpls/runtime-template.js');
       let hasRuntime = true;
 
+      //console.log("---------", compilation.fileDependencies);
+      if (compilation.fileDependencies.indexOf) {
+        hasRuntime = compilation.fileDependencies.indexOf(runtimeTemplatePath) !== -1;
+      } else if (compilation.fileDependencies.has) {
+        hasRuntime = compilation.fileDependencies.has(runtimeTemplatePath);
+      }
+
+      if (!hasRuntime && !this.__tests.ignoreRuntime) {
+        compilation.errors.push(
+            new Error(`OfflinePlugin: Plugin's runtime wasn't added to one of your bundle entries. See this https://goo.gl/YwewYp for details.`)
+        );
+      }
+
+      console.log("---------------HERRE", hasRuntime, this.__tests.ignoreRuntime);
+
+      callback();
+      return;
+    }
+
+    const addAssetsFn = (compilation, callback) => {
+      //console.log("-------------------", compilation, callback);
+      /*const runtimeTemplatePath = path.resolve(__dirname, '../tpls/runtime-template.js');
+      let hasRuntime = true;
+
+      //console.log("---------", compilation.fileDependencies);
       if (compilation.fileDependencies.indexOf) {
         hasRuntime = compilation.fileDependencies.indexOf(runtimeTemplatePath) !== -1;
       } else if (compilation.fileDependencies.has) {
@@ -274,7 +299,7 @@ export default class OfflinePlugin {
         );
         callback();
         return;
-      }
+      }*/
 
       const stats = compilation.getStats().toJson();
 
@@ -303,6 +328,7 @@ export default class OfflinePlugin {
       }, () => {
         callback(new Error('Something went wrong'));
       });
+      //callback();
     };
 
     if (compiler.hooks) {
@@ -313,14 +339,41 @@ export default class OfflinePlugin {
       });
 
       compiler.hooks.make.tapAsync(plugin, makeFn);
-      compiler.hooks.emit.tapAsync(plugin, emitFn);
+
+      // See : https://github.com/webpack/webpack/issues/11425
+      const isWebpack5 = !!compiler.webpack;
+      if (isWebpack5) {
+        //compiler.hooks.emit.tapAsync(plugin, checkRuntimeFn);
+
+        compiler.hooks.thisCompilation.tap(
+            plugin, (compilation) => {
+              compilation.hooks.processAssets.tapAsync({
+                ...plugin,
+                // See https://github.com/webpack/webpack/blob/9230acbf1a39a8afb2e34f41e2fd7326eef84968/lib/Compilation.js#L3376-L3381
+                //stage: compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE,
+                stage: compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_TRANSFER - 10,
+                //additionalAssets: true,
+              }, (compilationAssets, callback) => {
+                /*console.log("-------");
+                Object.entries(compilationAssets).forEach(([pathname, source]) => {
+                  console.log(pathname);
+                });*/
+                addAssetsFn(compilation, callback)
+              });
+            }
+        );
+      } else {
+        compiler.hooks.emit.tapAsync(plugin, checkRuntimeFn);
+        compiler.hooks.emit.tapAsync(plugin, addAssetsFn);
+      }
     } else {
       compiler.plugin('normal-module-factory', (nmf) => {
         nmf.plugin('after-resolve', afterResolveFn);
       });
 
       compiler.plugin('make', makeFn);
-      compiler.plugin('emit', emitFn);
+      compiler.plugin('emit', checkRuntimeFn);
+      compiler.plugin('emit', addAssetsFn);
     }
   }
 
@@ -343,6 +396,7 @@ export default class OfflinePlugin {
       );
     }
 
+    //console.log("--------------", compilation.assets);
     const excludes = this.options.excludes;
     let assets = Object.keys(compilation.assets);
     let externals = this.options.externals.slice();
@@ -457,6 +511,7 @@ export default class OfflinePlugin {
 
         return result;
       }, {});
+
 
       if (restSection && assets.length) {
         handledCaches[restSection] =

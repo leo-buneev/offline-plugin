@@ -47,6 +47,9 @@ export default class ServiceWorker {
   addEntry(plugin, compilation, compiler) {
     if (!this.entry) return Promise.resolve();
 
+    // Webpack 5.1.0 adds the `compiler.webpack` property.
+    const isWebpack5 = !!compiler.webpack
+
     const name = plugin.entryPrefix + this.ENTRY_NAME;
     const childCompiler = compilation.createChildCompiler(name, {
       // filename: this.output
@@ -119,15 +122,25 @@ export default class ServiceWorker {
       }
     }
 
-    // Needed for HMR. offline-plugin doesn't support it,
-    // but added just in case to prevent other errors
     const compilationFn = (compilation) => {
-      if (compilation.cache) {
-        if (!compilation.cache[name]) {
-          compilation.cache[name] = {};
-        }
+      /**
+       * Webpack 4 :
+       *  Needed for HMR. offline-plugin doesn't support it,
+       *  but added just in case to prevent other errors
+       *  Note : This code may be necessary as asset is produced on emit which is at compilation end.
+       *  See : http://stackoverflow.com/a/38284256
+       * Webpack 5 :
+       *  As asset is generated in a early step, we may not need to modify the cache anymore.
+       */
+      if (!isWebpack5) {
+        if (compilation.cache) {
+          // Webpack 4 and previous
+          if (!compilation.cache[name]) {
+            compilation.cache[name] = {};
+          }
 
-        compilation.cache = compilation.cache[name];
+          compilation.cache = compilation.cache[name];
+        }
       }
     };
 
@@ -185,9 +198,26 @@ export default class ServiceWorker {
       if (!plugin.__tests.swMetadataOnly) {
         source += '\n\n' + asset.source();
       }
+
+      /*if (asset) {
+        compilation.deleteAsset(name);
+
+        if (!plugin.__tests.swMetadataOnly) {
+          source += '\n\n' + asset.source();
+        }
+      }*/
+
     }
 
-    compilation.assets[this.output] = getSource(source);
+    const { RawSource } = compiler.webpack.sources;
+    /*if (compilation.assets[this.output]) {
+      compilation.updateAsset(this.output, new RawSource(source));
+    } else {
+      compilation.emitAsset(this.output, new RawSource(source));
+    }*/
+
+    compilation.emitAsset(this.output, new RawSource(source));
+    //compilation.assets[this.output] = getSource(source);
   }
 
   getDataTemplate(data, plugin, minify) {
