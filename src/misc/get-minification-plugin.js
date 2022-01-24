@@ -2,24 +2,24 @@ const webpack = require('webpack');
 let MinificationPlugin;
 let isUsingTerser = false;
 
-if (!MinificationPlugin) {
-  try {
-    MinificationPlugin = require('terser-webpack-plugin');
-    isUsingTerser = true;
-  } catch (e) {}
-}
+// if (!MinificationPlugin) {
+//   try {
+//     MinificationPlugin = require('terser-webpack-plugin');
+//     isUsingTerser = true;
+//   } catch (e) {}
+// }
 
-if (!MinificationPlugin) {
-  try {
-    MinificationPlugin = webpack.optimize.UglifyJsPlugin;
-  } catch (e) {}
-}
+// if (!MinificationPlugin) {
+//   try {
+//     MinificationPlugin = webpack.optimize.UglifyJsPlugin;
+//   } catch (e) {}
+// }
 
-if (!MinificationPlugin) {
-  try {
-    MinificationPlugin = require('uglifyjs-webpack-plugin');
-  } catch (e) {}
-}
+// if (!MinificationPlugin) {
+//   try {
+//     MinificationPlugin = require('uglifyjs-webpack-plugin');
+//   } catch (e) {}
+// }
 
 module.exports = MinificationPlugin ? {
   makeMinificationPlugin: (args) => {
